@@ -1,0 +1,394 @@
+#include<iostream>
+#include<fstream>
+using namespace std;
+#ifdef MACOSX
+#include<GLUT/glut.h>
+#else
+#include<GL/glut.h>
+#endif
+#include<string.h>
+#include<math.h>
+#include<stdlib.h>
+#include<cstdlib>
+#include<sstream>
+#include <string>
+#include<assert.h>
+#include"texture.h"
+
+// window
+double WIDTH = 1500;  // width of the user window
+double HEIGHT = 800;  // height of the user window
+char programName[] = "Main Menu";
+
+int secondWIDTH = 500;  // width of the second user window
+int secondHEIGHT = 300;  // height of the second user window
+int currentOpp = 0;
+
+// window info:  store the id of a window when it is created, and
+//   set this id to zero when the window is destroyed
+int mainWindowID = 0, secondWindowID = 0;
+int createNewWindow(const char *windowTitle);  // declare this function
+void drawSecondWindow(); // declare this function
+void runProgram(int i);
+
+// list area
+double listMargin = 40;
+double listWidth = WIDTH/2 - listMargin*1.5; // width of the list area
+double listHeight = HEIGHT - listMargin - 150; // height of the list area
+double listArea[] = { listMargin, 150,   listWidth, listHeight };
+
+double listMargin2 = 240;
+double listWidth2 = WIDTH/2 - listMargin2*1.5; // width of the list area
+double listHeight2 = HEIGHT - listMargin2 - 150; // height of the list area
+double listArea2[] = { listMargin2, 150,   listWidth2, listHeight2 };
+
+// about area
+double aboutArea[] = { WIDTH-listMargin-listWidth, listArea[1],  listWidth, listHeight };
+int img;  // texture id
+
+// item boxes
+const int numItems = 1;
+double itemMargin = 5;
+double itemWidth = listWidth-itemMargin*2;
+double itemHeight = ( listHeight - (itemMargin*(numItems+1)) ) / numItems;
+double** itemList = new double* [numItems]; // allocated in main
+bool overItem[numItems];
+
+const int numItems2 = 1;
+double itemMargin2 = 5;
+double itemWidth2 = listWidth2-itemMargin2*2;
+double itemHeight2 = ( listHeight2 - (itemMargin2*(numItems2+1)) ) / numItems2;
+double** itemList2 = new double* [numItems2]; // allocated in main
+bool overItem2[numItems2];
+
+// text
+char txtTitle[] = "P A S S     C E S S I B I L I T Y";
+char txtOpps[] = "Left-Handed";
+char txtForum[] = "Right-Handed";
+char** itemText = new char* [numItems];
+ // draw the text
+  glColor3f(0, 0, 0); // black
+  for (int i=0; i<numItems; i++) {
+    double y = itemList[i][1] + (itemHeight/2) + 5;
+    for (len=0; itemText[i][len]!='\0'; len++);
+    double x = itemList[i][0] + itemWidth/2 - (len*5);
+    drawText(x, y, itemText[i]);
+  }
+
+//------------------------------------------
+
+
+// draw rectangle, given upper left vertex, width, and height
+void drawBox(double x, double y, double width, double height) {
+  glBegin(GL_POLYGON);
+    glVertex2f(x, y);  // upper left
+    glVertex2f(x, y + height);  // lower left
+    glVertex2f(x + width, y + height);  // lower right
+    glVertex2f(x + width, y);  // upper right
+  glEnd();
+}
+void drawBox(double *pos) {
+  drawBox(pos[0], pos[1], pos[2], pos[3]);
+}
+
+
+// the drawText function draws some text at location x, y
+void drawText(double x, double y, const char *text) {
+  glRasterPos2f( x, y );
+  int length = strlen(text);
+  for (int i = 0; i < length; i++)
+    glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, text[i]);
+}
+
+
+//------------------------------------------
+
+
+void drawWindow() {
+  int len;
+  
+  // clear the buffer
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  //draw the title
+  glColor3f(1,1,1);
+  for (len=0; txtTitle[len]!='\0'; len++);
+  drawText(WIDTH/2-len*4, 100, txtTitle);
+  
+  // draw the list/about areas
+  glColor3f(.1, .1, .1); // dark gray
+  drawBox(listArea);
+  glColor3f(.1, .1, .1); // dark gray
+  drawBox(listArea2);
+  //glColor3f(.8, .8, .8);
+  //drawBox(aboutArea);
+  //drawTexture(img, aboutArea);
+  
+  //draw the list items
+  for (int i=0; i<numItems; i++) {
+    if ( overItem[i] ) glColor3f(1, 1, 1);
+    else glColor3f(.75, .75, .75);
+    drawBox(itemList[i]);
+  }
+
+   //draw the list items
+  for (int i=0; i<numItems2; i++) {
+    if ( overItem2[i] ) glColor3f(1, 1, 1);
+    else glColor3f(.75, .75, .75);
+    drawBox(itemList2[i]);
+  }
+
+  // draw the text
+  glColor3f(0, 0, 0); // black
+  for (int i=0; i<numItems; i++) {
+    double y = itemList[i][1] + (itemHeight/2) + 5;
+    for (len=0; itemText[i][len]!='\0'; len++);
+    double x = itemList[i][0] + itemWidth/2 - (len*5);
+    drawText(x, y, itemText[i]);
+  }
+
+   // draw the text
+  glColor3f(0, 0, 0); // black
+  for (int i=0; i<numItems2; i++) {
+    double y = itemList2[i][1] + (itemHeight2/2) + 5;
+    for (len=0; itemText2[i][len]!='\0'; len++);
+    double x = itemList2[i][0] + itemWidth2/2 - (len*5);
+    drawText(x, y, itemText2[i]);
+  }
+   
+  
+  // tell the graphics card that we're done-- go ahead and draw!
+  // (technically, we are switching between two color buffers...)
+  glutSwapBuffers();
+}
+
+// close the window and finish the program
+void exitAll() {
+  if ( secondWindowID ) {
+    glutDestroyWindow(secondWindowID);
+    secondWindowID = 0;
+    glutSetWindow(mainWindowID);
+    return;
+   }
+  else if ( mainWindowID ) {
+    glutDestroyWindow(mainWindowID);
+    exit(0);
+  }
+}
+
+
+// process keyboard events
+void keyboard( unsigned char c, int x, int y ) {
+  switch(c) {
+    case 'q':
+    case 'Q':
+    case 27:
+      exitAll();
+      break;
+    default:
+      break;
+  }
+  glutPostRedisplay();
+}
+
+// the reshape function handles the case where the user changes the size
+//   of the window.  We need to fix the coordinate
+//   system, so that the drawing area is still the unit square.
+void reshape(int w, int h) {
+  /*
+   glViewport(0, 0, (GLsizei) w, (GLsizei) h);
+   WIDTH = w;  HEIGHT = h;
+   glMatrixMode(GL_PROJECTION);
+   glLoadIdentity();
+   glOrtho(0., WIDTH-1, HEIGHT-1, 0., -1.0, 1.0);
+  */
+
+   glViewport(0, 0, (GLsizei) w, (GLsizei) h);
+   if ( mainWindowID == glutGetWindow() ) {
+     WIDTH = w;  HEIGHT = h;
+   } else {
+     secondWIDTH = w;  secondHEIGHT = h;
+   }
+   glMatrixMode(GL_PROJECTION);
+   glLoadIdentity();
+   glOrtho(0., w-1, h-1, 0., -1.0, 1.0);
+}
+
+// test whether point (x,y) is inside rectangle pos
+bool onRect(int x, int y, double* pos) {
+  return x >= pos[0]  && y >= pos[1] &&
+         x <= pos[0] + pos[2] &&
+         y <= pos[1] + pos[3];
+}
+
+
+//----------------------------------------
+
+
+void mouse(int mouseButton, int state, int x, int y) {
+  if ( GLUT_LEFT_BUTTON == mouseButton ) {
+    if ( GLUT_DOWN == state ) {   // left mouse button is pressed
+
+    } else {   // mouse is no longer pressed
+      
+      for (int i=0; i<numItems; i++) {
+	if ( overItem[i] ) runProgram(i);
+      }
+    }
+  } else if ( GLUT_RIGHT_BUTTON == mouseButton ) {
+    // right mouse button pressed
+  }
+  glutPostRedisplay();
+}
+
+
+// gives mouse location while mouse is being dragged
+void mouse_motion(int x,int y) {
+  // check if mouse is over item boxes
+  for (int i=0; i<numItems; i++) {
+    if ( onRect(x,y,itemList[i]) )
+      overItem[i] = true; else overItem[i] = false;
+  }
+  glutPostRedisplay();
+}
+
+
+//--------------------------------------
+
+
+
+// the createNewWindow function creates a window and returns its id
+int createNewWindow(const char *windowTitle) {
+  int id = glutCreateWindow(windowTitle);
+  assert( 0 != id );
+  // clear the window to black
+  glClearColor(0.0, 0.0, 0.0, 1.0);
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  // begin setting up the coordinate system
+
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+
+  // allow blending (for transparent textures)
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glEnable(GL_BLEND);
+
+  // register callbacks
+  glutKeyboardFunc(keyboard);
+  glutReshapeFunc(reshape);
+  glutMouseFunc(mouse);
+  glutMotionFunc(mouse_motion);
+  glutPassiveMotionFunc(mouse_motion);
+
+  return id;
+}
+
+
+void drawSecondWindow()
+{
+  glutSetWindow(secondWindowID);  // this call may not be necessary
+
+  // clear the buffer
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  // draw the box
+  glColor3f(.75, .75, .75); //light gray
+  drawBox(20,20,460,260);
+
+
+  // tell the graphics card that we're done-- go ahead and draw!
+  //   (technically, we are switching between two color buffers...)
+  glutSwapBuffers();
+}
+
+//----------------------------------------
+
+
+
+// the init function sets up the graphics card to draw properly
+void init(void)
+{
+  // clear the window to black
+  glClearColor(0.0, 0.0, 0.0, 1.0);
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  // set up the coordinate system:  number of pixels along x and y
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  glOrtho(0., WIDTH-1, HEIGHT-1, 0., -1.0, 1.0);
+
+  
+  // allow blending (for transparent textures)
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glEnable(GL_BLEND);
+}
+
+// init_gl_window is the function that starts the ball rolling, in
+//  terms of getting everything set up and passing control over to the
+//  glut library for event handling.  It needs to tell the glut library
+//  about all the essential functions:  what function to call if the
+//  window changes shape, what to do to redraw, handle the keyboard,
+//  etc.
+void init_gl_window() {
+  char *argv[] = { programName };
+  int argc = sizeof(argv) / sizeof(argv[0]);
+  glutInit(&argc, argv);
+  glutInitDisplayMode( GLUT_RGBA | GLUT_DOUBLE );
+  glutInitWindowSize(WIDTH,HEIGHT);
+  glutInitWindowPosition(400,300);
+  mainWindowID = glutCreateWindow(programName);
+  img = loadTexture("img.pam");  // loading in the main window
+  init();
+
+  glutDisplayFunc(drawWindow);
+  glutReshapeFunc(reshape);
+  glutKeyboardFunc(keyboard);
+  glutMouseFunc(mouse);
+  glutMotionFunc(mouse_motion);
+  glutPassiveMotionFunc(mouse_motion);
+  glutMainLoop();
+}
+
+
+//----------------------------------------
+
+void runProgram(int i) {
+  switch(i) {
+  case 0:
+    system("./database");
+    break;
+  case 1:
+    system("./forum");
+    break;
+  }
+}
+
+void stop() {
+  //run code on exit here
+}
+
+
+//----------------------------------------
+
+
+int main() {
+
+  // allocate item box sizes
+  for (int i=0; i<numItems; i++) {
+    double h = (itemMargin*(i+1)) + (itemHeight*i) + listArea[1];
+    double size[] = { listMargin+itemMargin, h,   itemWidth, itemHeight };
+    itemList[i] = new double [4];
+    for (int j=0; j<4; j++)
+      itemList[i][j] = size[j];
+  }
+
+  itemText[0] = txtOpps;
+  itemText[1] = txtForum;
+
+  atexit(stop);
+  
+  init_gl_window();
+
+  return 0;
+}

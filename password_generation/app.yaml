@@ -1,0 +1,21 @@
+runtime: python27
+api_version: 1
+service: randompassword
+threadsafe: yes
+
+handlers:
+- url: /randompassword.*
+  script: gen_pass_server.app
+
+- url: /www
+  static_dir: www
+- url: /www/images
+  static_dir: www/images
+
+- url: /.*
+  script: gen_pass_server.app
+
+
+libraries:
+- name: webapp2
+  version: "2.5.2"
